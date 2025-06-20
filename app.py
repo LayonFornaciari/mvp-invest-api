@@ -4,20 +4,22 @@ from urllib.parse import unquote
 
 from sqlalchemy.exc import IntegrityError
 
-from model import Session, Produto, Comentario
+from model import Session, Investimento, TipoInvestimento
 from schemas import *
 from flask_cors import CORS
 
-info = Info(title="Minha API", version="1.0.0")
+# Informações sobre a API
+info = Info(title="Minha API - Controle de Investimentos", version="1.0.0")
 app = OpenAPI(__name__, info=info)
 CORS(app)
 
-# definindo tags
+# Definindo as tags para organização no Swagger
 home_tag = Tag(name="Documentação", description="Seleção de documentação: Swagger, Redoc ou RapiDoc")
-produto_tag = Tag(name="Produto", description="Adição, visualização e remoção de produtos à base")
-comentario_tag = Tag(name="Comentario", description="Adição de um comentário à um produtos cadastrado na base")
+investimento_tag = Tag(name="Investimento", description="Adição, visualização, edição e remoção de investimentos à carteira")
+tipo_investimento_tag = Tag(name="Tipo de Investimento", description="Adição e listagem de tipos de investimentos (categorias)")
 
 
+# Rota raiz que redireciona para a documentação
 @app.get('/', tags=[home_tag])
 def home():
     """Redireciona para /openapi, tela que permite a escolha do estilo de documentação.
@@ -25,132 +27,155 @@ def home():
     return redirect('/openapi')
 
 
-@app.post('/produto', tags=[produto_tag],
-          responses={"200": ProdutoViewSchema, "409": ErrorSchema, "400": ErrorSchema})
-def add_produto(form: ProdutoSchema):
-    """Adiciona um novo Produto à base de dados
+# Rota para adicionar um novo tipo de investimento (categoria)
+@app.post('/tipo_investimento', tags=[tipo_investimento_tag],
+          responses={"200": TipoInvestimentoViewSchema, "409": ErrorSchema, "400": ErrorSchema})
+def add_tipo_investimento(form: TipoInvestimentoSchema):
+    """Adiciona um novo Tipo de Investimento (categoria) à base de dados.
 
-    Retorna uma representação dos produtos e comentários associados.
+    Retorna uma representação do tipo de investimento criado.
     """
-    produto = Produto(
-        nome=form.nome,
-        quantidade=form.quantidade,
-        valor=form.valor)
+    tipo_investimento = TipoInvestimento(nome=form.nome)
 
     try:
-        # criando conexão com a base
         session = Session()
-        # adicionando produto
-        session.add(produto)
-        # efetivando o camando de adição de novo item na tabela
+        session.add(tipo_investimento)
         session.commit()
-        return apresenta_produto(produto), 200
+        return {"id": tipo_investimento.id, "nome": tipo_investimento.nome}, 200
+    except IntegrityError:
+        error_msg = "Tipo de investimento com este nome já existe na base."
+        return {"message": error_msg}, 409
+    except Exception:
+        error_msg = "Não foi possível salvar novo tipo de investimento."
+        return {"message": error_msg}, 400
 
-    except IntegrityError as e:
-        # como a duplicidade do nome é a provável razão do IntegrityError
-        error_msg = "Produto de mesmo nome já salvo na base :/"
-        return {"mesage": error_msg}, 409
+# Rota para listar todos os tipos de investimento
+@app.get('/tipos_investimento', tags=[tipo_investimento_tag],
+         responses={"200": ListagemTiposInvestimentoSchema, "404": ErrorSchema})
+def get_tipos_investimento():
+    """Faz a busca por todos os Tipos de Investimento cadastrados.
 
+    Retorna uma representação da listagem de tipos de investimento.
+    """
+    session = Session()
+    tipos = session.query(TipoInvestimento).all()
+
+    if not tipos:
+        return {"tipos_investimento": []}, 200
+    else:
+        return {"tipos_investimento": [{"id": t.id, "nome": t.nome} for t in tipos]}, 200
+
+
+# Rota para adicionar um novo investimento à carteira
+@app.post('/investimento', tags=[investimento_tag],
+          responses={"200": InvestimentoViewSchema, "404": ErrorSchema, "400": ErrorSchema})
+def add_investimento(form: InvestimentoSchema):
+    """Adiciona um novo Investimento à carteira.
+
+    Retorna uma representação do investimento adicionado.
+    """
+    session = Session()
+    # Verifica se o tipo de investimento (categoria) existe
+    tipo_investimento = session.query(TipoInvestimento).filter_by(id=form.tipo_id).first()
+    if not tipo_investimento:
+        error_msg = "Tipo de Investimento não encontrado."
+        return {"message": error_msg}, 404
+
+    investimento = Investimento(
+        nome_ativo=form.nome_ativo,
+        quantidade=form.quantidade,
+        valor_investido=form.valor_investido,
+        tipo_id=form.tipo_id
+    )
+
+    try:
+        session.add(investimento)
+        session.commit()
+        return apresenta_investimento(investimento), 200
     except Exception as e:
-        # caso um erro fora do previsto
-        error_msg = "Não foi possível salvar novo item :/"
-        return {"mesage": error_msg}, 400
+        error_msg = "Não foi possível salvar novo investimento."
+        return {"message": error_msg, "details": str(e)}, 400
 
 
-@app.get('/produtos', tags=[produto_tag],
-         responses={"200": ListagemProdutosSchema, "404": ErrorSchema})
-def get_produtos():
-    """Faz a busca por todos os Produto cadastrados
+# Rota para listar todos os investimentos da carteira
+@app.get('/investimentos', tags=[investimento_tag],
+         responses={"200": ListagemInvestimentosSchema, "404": ErrorSchema})
+def get_investimentos():
+    """Faz a busca por todos os Investimentos cadastrados na carteira.
 
-    Retorna uma representação da listagem de produtos.
+    Retorna uma representação da listagem de investimentos.
     """
-    # criando conexão com a base
     session = Session()
-    # fazendo a busca
-    produtos = session.query(Produto).all()
+    investimentos = session.query(Investimento).all()
 
-    if not produtos:
-        # se não há produtos cadastrados
-        return {"produtos": []}, 200
+    if not investimentos:
+        return {"investimentos": []}, 200
     else:
-        # retorna a representação de produto
-        print(produtos)
-        return apresenta_produtos(produtos), 200
+        return apresenta_investimentos(investimentos), 200
 
 
-@app.get('/produto', tags=[produto_tag],
-         responses={"200": ProdutoViewSchema, "404": ErrorSchema})
-def get_produto(query: ProdutoBuscaSchema):
-    """Faz a busca por um Produto a partir do id do produto
+# Rota para buscar um investimento específico pelo ID
+@app.get('/investimento', tags=[investimento_tag],
+         responses={"200": InvestimentoViewSchema, "404": ErrorSchema})
+def get_investimento(query: InvestimentoBuscaSchema):
+    """Faz a busca por um Investimento a partir do ID.
 
-    Retorna uma representação dos produtos e comentários associados.
+    Retorna uma representação do investimento encontrado.
     """
-    produto_nome = query.nome
-    # criando conexão com a base
+    investimento_id = query.id
     session = Session()
-    # fazendo a busca
-    produto = session.query(Produto).filter(Produto.nome == produto_nome).first()
+    investimento = session.query(Investimento).filter(Investimento.id == investimento_id).first()
 
-    if not produto:
-        # se o produto não foi encontrado
-        error_msg = "Produto não encontrado na base :/"
-        return {"mesage": error_msg}, 404
+    if not investimento:
+        error_msg = "Investimento não encontrado na base."
+        return {"message": error_msg}, 404
     else:
-        # retorna a representação de produto
-        return apresenta_produto(produto), 200
+        return apresenta_investimento(investimento), 200
 
-
-@app.delete('/produto', tags=[produto_tag],
-            responses={"200": ProdutoDelSchema, "404": ErrorSchema})
-def del_produto(query: ProdutoBuscaSchema):
-    """Deleta um Produto a partir do nome de produto informado
+# Rota para deletar um investimento pelo ID
+@app.delete('/investimento', tags=[investimento_tag],
+            responses={"200": InvestimentoDelSchema, "404": ErrorSchema})
+def del_investimento(query: InvestimentoBuscaSchema):
+    """Deleta um Investimento a partir do ID informado.
 
     Retorna uma mensagem de confirmação da remoção.
     """
-    produto_nome = unquote(unquote(query.nome))
-    print(produto_nome)
-
-    # criando conexão com a base
+    investimento_id = query.id
     session = Session()
-    # fazendo a remoção
-    count = session.query(Produto).filter(Produto.nome == produto_nome).delete()
+    count = session.query(Investimento).filter(Investimento.id == investimento_id).delete()
     session.commit()
 
     if count:
-        # retorna a representação da mensagem de confirmação
-        return {"mesage": "Produto removido", "id": produto_nome}
+        return {"mesage": "Investimento removido", "id": investimento_id}
     else:
-        # se o produto não foi encontrado
-        error_msg = "Produto não encontrado na base :/"
+        error_msg = "Investimento não encontrado na base."
         return {"mesage": error_msg}, 404
 
-
-@app.post('/cometario', tags=[comentario_tag],
-          responses={"200": ProdutoViewSchema, "404": ErrorSchema})
-def add_comentario(form: ComentarioSchema):
-    """Adiciona de um novo comentário à um produtos cadastrado na base identificado pelo id
-
-    Retorna uma representação dos produtos e comentários associados.
+# Rota para editar um investimento existente
+@app.put('/investimento', tags=[investimento_tag],
+         responses={"200": InvestimentoViewSchema, "404": ErrorSchema})
+def update_investimento(query: InvestimentoBuscaSchema, form: InvestimentoSchema):
+    """Edita um investimento existente na base de dados.
     """
-    produto_id  = form.produto_id
-
-    # criando conexão com a base
+    investimento_id = query.id
     session = Session()
-    # fazendo a busca pelo produto
-    produto = session.query(Produto).filter(Produto.id == produto_id).first()
+    investimento = session.query(Investimento).filter(Investimento.id == investimento_id).first()
 
-    if not produto:
-        # se produto não encontrado
-        error_msg = "Produto não encontrado na base :/"
-        return {"mesage": error_msg}, 404
+    if not investimento:
+        error_msg = "Investimento não encontrado na base."
+        return {"message": error_msg}, 404
 
-    # criando o comentário
-    texto = form.texto
-    comentario = Comentario(texto)
+    # Verifica se a nova categoria existe
+    tipo_investimento = session.query(TipoInvestimento).filter_by(id=form.tipo_id).first()
+    if not tipo_investimento:
+        error_msg = "Tipo de Investimento não encontrado."
+        return {"message": error_msg}, 404
 
-    # adicionando o comentário ao produto
-    produto.adiciona_comentario(comentario)
+    # Atualiza os dados
+    investimento.nome_ativo = form.nome_ativo
+    investimento.quantidade = form.quantidade
+    investimento.valor_investido = form.valor_investido
+    investimento.tipo_id = form.tipo_id
     session.commit()
 
-    # retorna a representação de produto
-    return apresenta_produto(produto), 200
+    return apresenta_investimento(investimento), 200
