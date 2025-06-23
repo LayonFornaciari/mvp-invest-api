@@ -7,7 +7,7 @@ from model.investimento import Investimento, TipoInvestimento
 class TipoInvestimentoSchema(BaseModel):
     """ Define como um novo tipo de investimento a ser inserido deve ser representado
     """
-    nome: str = "Ações"
+    nome: str
 
 class TipoInvestimentoViewSchema(BaseModel):
     """ Define como um tipo de investimento será retornado
@@ -23,12 +23,13 @@ class ListagemTiposInvestimentoSchema(BaseModel):
 
 # Schemas para Investimento
 class InvestimentoSchema(BaseModel):
-    """ Define como um novo investimento a ser inserido deve ser representado
+    """ Define como um novo investimento a ser inserido deve ser representado.
+        Todos os campos são obrigatórios.
     """
-    nome_ativo: str = "PETR4"
-    quantidade: float = 100
-    valor_investido: float = 2800.50
-    tipo_id: int = 1
+    nome_ativo: str
+    quantidade: float
+    valor_investido: float
+    tipo_id: int
 
 class InvestimentoBuscaSchema(BaseModel):
     """ Define como deve ser a estrutura que representa a busca. Que será

@@ -30,12 +30,12 @@ def home():
 # Rota para adicionar um novo tipo de investimento (categoria)
 @app.post('/tipo_investimento', tags=[tipo_investimento_tag],
           responses={"200": TipoInvestimentoViewSchema, "409": ErrorSchema, "400": ErrorSchema})
-def add_tipo_investimento(form: TipoInvestimentoSchema):
+def add_tipo_investimento(body: TipoInvestimentoSchema):
     """Adiciona um novo Tipo de Investimento (categoria) à base de dados.
 
     Retorna uma representação do tipo de investimento criado.
     """
-    tipo_investimento = TipoInvestimento(nome=form.nome)
+    tipo_investimento = TipoInvestimento(nome=body.nome)
 
     try:
         session = Session()
@@ -69,23 +69,23 @@ def get_tipos_investimento():
 # Rota para adicionar um novo investimento à carteira
 @app.post('/investimento', tags=[investimento_tag],
           responses={"200": InvestimentoViewSchema, "404": ErrorSchema, "400": ErrorSchema})
-def add_investimento(form: InvestimentoSchema):
+def add_investimento(body: InvestimentoSchema):
     """Adiciona um novo Investimento à carteira.
 
     Retorna uma representação do investimento adicionado.
     """
     session = Session()
     # Verifica se o tipo de investimento (categoria) existe
-    tipo_investimento = session.query(TipoInvestimento).filter_by(id=form.tipo_id).first()
+    tipo_investimento = session.query(TipoInvestimento).filter_by(id=body.tipo_id).first()
     if not tipo_investimento:
         error_msg = "Tipo de Investimento não encontrado."
         return {"message": error_msg}, 404
 
     investimento = Investimento(
-        nome_ativo=form.nome_ativo,
-        quantidade=form.quantidade,
-        valor_investido=form.valor_investido,
-        tipo_id=form.tipo_id
+        nome_ativo=body.nome_ativo,
+        quantidade=body.quantidade,
+        valor_investido=body.valor_investido,
+        tipo_id=body.tipo_id
     )
 
     try:
@@ -154,7 +154,7 @@ def del_investimento(query: InvestimentoBuscaSchema):
 # Rota para editar um investimento existente
 @app.put('/investimento', tags=[investimento_tag],
          responses={"200": InvestimentoViewSchema, "404": ErrorSchema})
-def update_investimento(query: InvestimentoBuscaSchema, form: InvestimentoSchema):
+def update_investimento(query: InvestimentoBuscaSchema, body: InvestimentoSchema):
     """Edita um investimento existente na base de dados.
     """
     investimento_id = query.id
@@ -166,16 +166,16 @@ def update_investimento(query: InvestimentoBuscaSchema, form: InvestimentoSchema
         return {"message": error_msg}, 404
 
     # Verifica se a nova categoria existe
-    tipo_investimento = session.query(TipoInvestimento).filter_by(id=form.tipo_id).first()
+    tipo_investimento = session.query(TipoInvestimento).filter_by(id=body.tipo_id).first()
     if not tipo_investimento:
         error_msg = "Tipo de Investimento não encontrado."
         return {"message": error_msg}, 404
 
     # Atualiza os dados
-    investimento.nome_ativo = form.nome_ativo
-    investimento.quantidade = form.quantidade
-    investimento.valor_investido = form.valor_investido
-    investimento.tipo_id = form.tipo_id
+    investimento.nome_ativo = body.nome_ativo
+    investimento.quantidade = body.quantidade
+    investimento.valor_investido = body.valor_investido
+    investimento.tipo_id = body.tipo_id
     session.commit()
 
     return apresenta_investimento(investimento), 200
