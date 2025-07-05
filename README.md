@@ -2,7 +2,25 @@
 
 ## Descrição do Projeto
 
-Este projeto é uma API RESTful desenvolvida como o MVP (Minimum Viable Product) para a disciplina de Desenvolvimento Full Stack Básico da Pós-Graduação em Engenharia de Software da PUC-Rio. O objetivo da API é fornecer um serviço de back-end para gerenciar uma carteira de investimentos, permitindo o registo, visualização e remoção de ativos e suas categorias.
+Este projeto é uma API RESTful desenvolvida como o MVP (Minimum Viable Product) para a disciplina de Desenvolvimento Full Stack Básico da Pós-Graduação em Engenharia de Software da PUC-Rio. O objetivo da API é fornecer um serviço de back-end para gerenciar uma carteira de investimentos, permitindo o registo, visualização, edição e remoção de ativos e suas categorias.
+
+Este repositório contém apenas o back-end. O projeto de front-end pode ser encontrado em: [mvp-invest-ui](https://github.com/LayonFornaciari/mvp-invest-ui).
+
+---
+
+## Funcionalidades (Endpoints)
+
+A API oferece os seguintes endpoints para manipulação dos dados:
+
+* **Tipos de Investimento:**
+    * `GET /tipos_investimento`: Lista todas as categorias de investimento.
+    * `POST /tipo_investimento`: Adiciona uma nova categoria.
+* **Investimentos:**
+    * `GET /investimentos`: Lista todos os ativos da carteira.
+    * `GET /investimento`: Busca um ativo específico pelo seu ID.
+    * `POST /investimento`: Adiciona um novo ativo à carteira.
+    * `PUT /investimento`: Edita um ativo existente.
+    * `DELETE /investimento`: Remove um ativo da carteira.
 
 ---
 
@@ -45,6 +63,9 @@ Siga os passos abaixo para executar a API localmente.
 
     # Ativar no Windows
     .\.venv\Scripts\activate
+
+    # Ativar no macOS/Linux
+    source .venv/bin/activate
     ```
 
 4.  **Instale as dependências:**
